@@ -1,6 +1,7 @@
+import os
 import string
-import nltk
 import logging
+import nltk
 
 from nltk.util import ngrams
 from nltk.corpus import stopwords
@@ -19,6 +20,13 @@ from langdetect import detect
 from typing import List, Dict
 
 logging.getLogger().setLevel(logging.INFO)
+
+# Download the nltk packages if required
+if not os.path.isdir(os.path.expanduser("~")+"/nltk_data/corpora"):
+    nltk.download('stopwords')
+if not os.path.isdir(os.path.expanduser("~")+"/nltk_data/tokenizers"):
+    nltk.download('punkt')
+
 
 class NGramsGenerator:
     def __init__(self,
