@@ -22,10 +22,10 @@ from typing import List, Dict
 logging.getLogger().setLevel(logging.INFO)
 
 # Download the nltk packages if required
-if not os.path.isdir("/tmp/nltk_data/corpora"):
-    nltk.download('stopwords', download_dir="/tmp/nltk_data")
-if not os.path.isdir("/tmp/nltk_data/tokenizers"):
-    nltk.download('punkt', download_dir="/tmp/nltk_data")
+if not os.path.isdir("/nltk_data/corpora"):
+    nltk.download("stopwords")
+if not os.path.isdir("/nltk_data/tokenizers"):
+    nltk.download("punkt")
 
 
 class NGramsGenerator:
