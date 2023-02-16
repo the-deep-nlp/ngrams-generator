@@ -21,6 +21,8 @@ from typing import List, Dict
 
 logging.getLogger().setLevel(logging.INFO)
 
+nltk.data.path.append('/nltk_data')
+
 # Download the nltk packages if required
 if not os.path.isdir("/nltk_data/corpora"):
     nltk.download("stopwords")
