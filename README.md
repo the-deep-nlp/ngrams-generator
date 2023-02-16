@@ -11,19 +11,11 @@ This ngrams package generates the unigram, bigram, trigram through different set
 
 There are several parameters that can be set during the object instantiation.
 
-from ngrams_generator import NGramsGenerator
+`from ngrams_generator import NGramsGenerator`
 
-ng = NGramsGenerator(
-    max_ngrams_items: int,
-    generate_unigrams: bool,
-    generate_bigrams: bool,
-    generate_trigrams: bool,
-    enable_stopwords: bool,
-    enable_stemming: bool,
-    enable_case_sensitive: bool
-)
+`ng = NGramsGenerator(generate_unigrams: bool, generate_bigrams: bool, generate_trigrams: bool, enable_stopwords: bool, enable_stemming: bool, enable_case_sensitive: bool, max_ngrams_items: int)`
 
-ngram_tokens = ng(list_of_entries)
+`ngram_tokens = ng(list_of_entries)`
 
 
 ## Description of the parameters
@@ -41,3 +33,8 @@ ngram_tokens = ng(list_of_entries)
 `enable_stemming:` Whether stemming should be enabled
 
 `enable_case_sensitive:` Whether case sensitivity should be enabled
+
+
+The output format is
+
+`Dict[str, Dict[str, int]]`
