@@ -6,7 +6,7 @@ import unicodedata
 import string
 from nltk.util import ngrams
 from nltk.corpus import stopwords
-from nltk.tokenize import word_tokenize
+from nltk.tokenize import word_tokenize, sent_tokenize
 from nltk.stem.snowball import (
     EnglishStemmer,
     FrenchStemmer,
@@ -42,7 +42,8 @@ class NGramsGenerator:
         generate_trigrams: bool=True,
         enable_stopwords: bool=True,
         enable_stemming: bool=True,
-        enable_case_sensitive: bool=True
+        enable_case_sensitive: bool=True,
+        enable_end_of_sentence: bool=True
     ):
         self.stopwords_ar = stopwords.words("arabic")
         self.stopwords_en = stopwords.words("english")
@@ -63,6 +64,7 @@ class NGramsGenerator:
         self.enable_stopwords = enable_stopwords
         self.enable_stemming = enable_stemming
         self.enable_case_sensitive = enable_case_sensitive
+        self.enable_end_of_sentence = enable_end_of_sentence
 
         self.allowed_languages = ["ar", "en", "fr", "es", "pt"]
 
@@ -99,7 +101,7 @@ class NGramsGenerator:
 
         self.fn_stopwords = lambda tokens, lang: [w for w in tokens if w not in language_fn_mapper[lang]["stopwords"]]
         self.fn_stemmer = lambda tokens, lang: [language_fn_mapper[lang]["stemmer"].stem(w) for w in tokens]
-    
+
     def detect_language(self, entry: str)->str:
         """
         Detects language of the text
@@ -146,6 +148,35 @@ class NGramsGenerator:
         del special_punctuation[46] # remove full stop from the dict
         return str_punctuation, special_punctuation
 
+    def clean_sentence_level(
+        self,
+        entry: str,
+        language: str,
+        return_tokens: bool=True
+    ):
+        """
+        Cleans the texts based on input parameters at sentence level
+        """
+        entry = entry.strip()
+        sent_tokens = sent_tokenize(entry, language=self.language_mapper.get(language, "english"))
+        entry_tokens_lst = [word_tokenize(sent, language=self.language_mapper.get(language, "english")) for sent in sent_tokens]
+
+        entry_tokens_lst = [self.handle_currency(entry_tokens) for entry_tokens in entry_tokens_lst]
+        str_punctuation, special_punctuation = self.get_punctuations()
+        entry_tokens_lst = [[w for w in entry_tokens if w not in str_punctuation] for entry_tokens in entry_tokens_lst] # Removes the punctuation from the sentence
+        entry_tokens_lst = [list(filter(None, [w.translate(special_punctuation) for w in entry_tokens])) for entry_tokens in entry_tokens_lst]
+
+        if self.enable_stopwords:
+            entry_tokens_lst = self.fn_stopwords(entry_tokens_lst, language)
+        if self.enable_stemming:
+            entry_tokens_lst = self.fn_stemmer(entry_tokens_lst, language)
+        if not self.enable_case_sensitive:
+            entry_tokens_lst = [w.lower() for w in entry_tokens_lst]
+
+        if return_tokens:
+            return entry_tokens_lst
+        return " ".join(entry_tokens_lst)
+
     def clean_entry(
         self,
         entry: str,
@@ -160,8 +191,7 @@ class NGramsGenerator:
         entry_tokens = self.handle_currency(entry_tokens)
         str_punctuation, special_punctuation = self.get_punctuations()
         entry_tokens = [w for w in entry_tokens if w not in str_punctuation] # Removes the punctuation from the sentence
-       
-        print(entry_tokens)
+
         entry_tokens = list(filter(None, [w.translate(special_punctuation) for w in entry_tokens]))
         if self.enable_stopwords:
             entry_tokens = self.fn_stopwords(entry_tokens, language)
@@ -169,7 +199,7 @@ class NGramsGenerator:
             entry_tokens = self.fn_stemmer(entry_tokens, language)
         if not self.enable_case_sensitive:
             entry_tokens = [w.lower() for w in entry_tokens]
-        
+
         if return_tokens:
             return entry_tokens
         return " ".join(entry_tokens)
@@ -183,10 +213,17 @@ class NGramsGenerator:
         """
         Calculates the n-grams
         """
-        ngrams_op = [ngrams(entry_tokens, n) for entry_tokens in entries]
-        ngrams_lst = [list(x) for x in ngrams_op]
-        # Flatten the list of list
-        ngrams_flat_lst = [item for sublist in ngrams_lst for item in sublist]
+        if self.enable_end_of_sentence:
+            ngrams_op = [[ngrams(entry_tokens, n) for entry_tokens in entry] for entry in entries]
+            ngrams_lst = [[list(x) for x in n] for n in ngrams_op]
+            # Flatten the list of list
+            ngrams_flat_lst = [item for sublist in ngrams_lst for item in sublist]
+            ngrams_flat_lst = [item for sublist in ngrams_flat_lst for item in sublist]
+        else:
+            ngrams_op = [ngrams(entry_tokens, n) for entry_tokens in entries]
+            ngrams_lst = [list(x) for x in ngrams_op]
+            # Flatten the list of list
+            ngrams_flat_lst = [item for sublist in ngrams_lst for item in sublist]
         return Counter(ngrams_flat_lst).most_common(self.max_ngrams_items)
 
     def __call__(
@@ -203,10 +240,9 @@ class NGramsGenerator:
                 continue
             detected_language = self.detect_language(entry)
             processed_entries.append(
-                self.clean_entry(
-                    entry,
-                    language=detected_language
-                )
+                self.clean_sentence_level(entry, language=detected_language)
+                    if self.enable_end_of_sentence else
+                    self.clean_entry(entry, language=detected_language)
             )
 
         if self.generate_unigrams:
