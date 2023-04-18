@@ -120,20 +120,20 @@ class NGramsGenerator:
         """
         Handles currency
         """
-        flag = 0
+        is_prev_token_merged = 0
         cur = ["$", "£", "€", "¥", "₹", "रु", "₣"]
         processed_lst = []
         try:
             for i, token in enumerate(entry_lst):
-                if flag:
-                    flag = 0
+                if is_prev_token_merged:
+                    is_prev_token_merged = 0
                     continue
                 if token in cur and entry_lst[i+1].isnumeric():
                     processed_lst.append(token + entry_lst[i+1])
-                    flag = 1
+                    is_prev_token_merged = 1
                 else:
                     processed_lst.append(token)
-                    flag = 0
+                    is_prev_token_merged = 0
             return processed_lst
         except IndexError:
             return entry_lst
