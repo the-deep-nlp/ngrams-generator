@@ -167,11 +167,11 @@ class NGramsGenerator:
         entry_tokens_lst = [list(filter(None, [w.translate(special_punctuation) for w in entry_tokens])) for entry_tokens in entry_tokens_lst]
 
         if self.enable_stopwords:
-            entry_tokens_lst = self.fn_stopwords(entry_tokens_lst, language)
+            entry_tokens_lst = [self.fn_stopwords(entry_tokens, language) for entry_tokens in entry_tokens_lst]
         if self.enable_stemming:
-            entry_tokens_lst = self.fn_stemmer(entry_tokens_lst, language)
+            entry_tokens_lst = [self.fn_stemmer(entry_tokens, language) for entry_tokens in entry_tokens_lst]
         if not self.enable_case_sensitive:
-            entry_tokens_lst = [w.lower() for w in entry_tokens_lst]
+            entry_tokens_lst = [[w.lower() for w in entry_tokens] for entry_tokens in entry_tokens_lst]
 
         if return_tokens:
             return entry_tokens_lst
