@@ -1,8 +1,9 @@
 import os
-import string
+import sys
 import logging
 import nltk
-
+import unicodedata
+import string
 from nltk.util import ngrams
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
@@ -31,6 +32,9 @@ if not os.path.isdir("/nltk_data/tokenizers"):
 
 
 class NGramsGenerator:
+    """
+    Class to generate n-grams from the texts
+    """
     def __init__(self,
         max_ngrams_items: int=10,
         generate_unigrams: bool=True,
@@ -97,6 +101,9 @@ class NGramsGenerator:
         self.fn_stemmer = lambda tokens, lang: [language_fn_mapper[lang]["stemmer"].stem(w) for w in tokens]
     
     def detect_language(self, entry: str)->str:
+        """
+        Detects language of the text
+        """
         try:
             lang = detect(entry)
             if lang not in self.allowed_languages:
@@ -106,16 +113,56 @@ class NGramsGenerator:
         except Exception as e:
             logging.warning(f"{e} Using english(en) instead.")
         return "en"
-    
+
+    def handle_currency(self, entry_lst: List)-> List:
+        """
+        Handles currency
+        """
+        flag = 0
+        cur = ["$", "£", "€", "¥", "₹", "रु", "₣"]
+        processed_lst = []
+        try:
+            for i, token in enumerate(entry_lst):
+                if flag:
+                    flag = 0
+                    continue
+                if token in cur and entry_lst[i+1].isnumeric():
+                    processed_lst.append(token + entry_lst[i+1])
+                    flag = 1
+                else:
+                    processed_lst.append(token)
+                    flag = 0
+            return processed_lst
+        except IndexError:
+            return entry_lst
+
+
+    def get_punctuations(self)-> Dict:
+        """
+        Returns commonly used punctuations
+        """
+        str_punctuation = string.punctuation
+        special_punctuation = dict.fromkeys(i for i in range(sys.maxunicode) if unicodedata.category(chr(i)).startswith('P'))
+        del special_punctuation[46] # remove full stop from the dict
+        return str_punctuation, special_punctuation
+
     def clean_entry(
         self,
         entry: str,
         language: str,
         return_tokens: bool=True
     ):
+        """
+        Cleans the texts based on input parameters
+        """
         entry = entry.strip()
-        entry = "".join([w for w in entry if w not in string.punctuation]) # Removes the punctuation from the sentence
         entry_tokens = word_tokenize(entry, language=self.language_mapper.get(language, "english"))
+        entry_tokens = self.handle_currency(entry_tokens)
+        str_punctuation, special_punctuation = self.get_punctuations()
+        entry_tokens = [w for w in entry_tokens if w not in str_punctuation] # Removes the punctuation from the sentence
+       
+        print(entry_tokens)
+        entry_tokens = list(filter(None, [w.translate(special_punctuation) for w in entry_tokens]))
         if self.enable_stopwords:
             entry_tokens = self.fn_stopwords(entry_tokens, language)
         if self.enable_stemming:
@@ -133,6 +180,9 @@ class NGramsGenerator:
         entries: List[str],
         n: int=1
     ):
+        """
+        Calculates the n-grams
+        """
         ngrams_op = [ngrams(entry_tokens, n) for entry_tokens in entries]
         ngrams_lst = [list(x) for x in ngrams_op]
         # Flatten the list of list
@@ -143,8 +193,11 @@ class NGramsGenerator:
         self,
         entries: List[str]
     )->Dict[str, Dict]:
-        ngrams = dict()
-        processed_entries = list()
+        """
+        Main handler to generate n-grams
+        """
+        ngrams = {}
+        processed_entries = []
         for entry in entries:
             if entry.strip() == "":
                 continue
@@ -155,19 +208,19 @@ class NGramsGenerator:
                     language=detected_language
                 )
             )
-        
+
         if self.generate_unigrams:
             unigrams = self.get_ngrams(processed_entries, n=1)
             ngrams["unigrams"] = OrderedDict({
                 " ".join(k): v for k, v in dict(unigrams).items()
             })
-        
+
         if self.generate_bigrams:
             bigrams = self.get_ngrams(processed_entries, n=2)
             ngrams["bigrams"] = OrderedDict({
                 " ".join(k): v for k, v in dict(bigrams).items()
             })
-        
+
         if self.generate_trigrams:
             trigrams = self.get_ngrams(processed_entries, n=3)
             ngrams["trigrams"] = OrderedDict({
