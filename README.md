@@ -34,6 +34,8 @@ There are several parameters that can be set during the object instantiation.
 
 `enable_case_sensitive:` Whether case sensitivity should be enabled
 
+`enable_end_of_sentence:` Whether to consider end of sentence or not.
+
 
 The output format is
 
