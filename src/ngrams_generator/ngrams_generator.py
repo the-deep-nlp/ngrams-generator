@@ -2,6 +2,9 @@ import os
 import re
 import string
 import logging
+from collections import Counter, OrderedDict
+from typing import List, Dict
+
 import nltk
 from nltk.util import ngrams
 from nltk.corpus import stopwords
@@ -14,10 +17,7 @@ from nltk.stem.snowball import (
     PortugueseStemmer
 )
 
-from collections import Counter, OrderedDict
 from langdetect import detect
-
-from typing import List, Dict
 
 logging.getLogger().setLevel(logging.INFO)
 
@@ -41,7 +41,7 @@ class NGramsGenerator:
         generate_trigrams: bool=True,
         enable_stopwords: bool=True,
         enable_stemming: bool=False,
-        enable_case_sensitive: bool=False,
+        enable_case_sensitive: bool=True,
         enable_end_of_sentence: bool=True
     ):
         self.stopwords_ar = stopwords.words("arabic")
@@ -75,7 +75,7 @@ class NGramsGenerator:
             "pt": "portuguese"
         }
 
-        language_fn_mapper = {
+        self.language_fn_mapper = {
             "ar": {
                 "stopwords": self.stopwords_ar,
                 "stemmer": stemmer_ar
@@ -98,8 +98,7 @@ class NGramsGenerator:
             }
         }
 
-        self.fn_stopwords = lambda tokens, lang: [w for w in tokens if w not in language_fn_mapper[lang]["stopwords"]]
-        self.fn_stemmer = lambda tokens, lang: [language_fn_mapper[lang]["stemmer"].stem(w) for w in tokens]
+        self.fn_stemmer = lambda tokens, lang: [self.language_fn_mapper[lang]["stemmer"].stem(w) for w in tokens]
 
     def detect_language(self, entry: str)->str:
         """
@@ -108,11 +107,11 @@ class NGramsGenerator:
         try:
             lang = detect(entry)
             if lang not in self.allowed_languages:
-                logging.warning(f"{lang} not found in allowed languages. Using english(en) instead.")
+                logging.warning("%s not found in allowed languages. Using english(en) instead.", lang)
                 return "en"
             return lang
-        except Exception as e:
-            logging.warning(f"{e} Using english(en) instead.")
+        except Exception as exc:
+            logging.warning("%s Using english(en) instead.", str(exc))
         return "en"
 
     def handle_currency(self, entry_lst: List)-> List:
@@ -169,7 +168,7 @@ class NGramsGenerator:
         entry_tokens_lst = [[w for w in entry_tokens if w not in self.get_punctuations()] for entry_tokens in entry_tokens_lst] # Removes the punctuation from the sentence
 
         if self.enable_stopwords:
-            entry_tokens_lst = [self.fn_stopwords(entry_tokens, language) for entry_tokens in entry_tokens_lst]
+            entry_tokens_lst = [[w for w in entry_tokens if w.lower() not in self.language_fn_mapper[language]["stopwords"]] for entry_tokens in entry_tokens_lst]
         if self.enable_stemming:
             entry_tokens_lst = [self.fn_stemmer(entry_tokens, language) for entry_tokens in entry_tokens_lst]
         if not self.enable_case_sensitive:
@@ -195,7 +194,7 @@ class NGramsGenerator:
         entry_tokens = [w for w in entry_tokens if w not in self.get_punctuations()] # Removes the punctuation from the sentence
 
         if self.enable_stopwords:
-            entry_tokens = self.fn_stopwords(entry_tokens, language)
+            entry_tokens = [w for w in entry_tokens if w.lower() not in self.language_fn_mapper[language]["stopwords"]]
         if self.enable_stemming:
             entry_tokens = self.fn_stemmer(entry_tokens, language)
         if not self.enable_case_sensitive:
