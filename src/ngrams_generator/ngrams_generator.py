@@ -1,9 +1,8 @@
 import os
-import sys
+import re
+import string
 import logging
 import nltk
-import unicodedata
-import string
 from nltk.util import ngrams
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize, sent_tokenize
@@ -41,8 +40,8 @@ class NGramsGenerator:
         generate_bigrams: bool=True,
         generate_trigrams: bool=True,
         enable_stopwords: bool=True,
-        enable_stemming: bool=True,
-        enable_case_sensitive: bool=True,
+        enable_stemming: bool=False,
+        enable_case_sensitive: bool=False,
         enable_end_of_sentence: bool=True
     ):
         self.stopwords_ar = stopwords.words("arabic")
@@ -143,10 +142,14 @@ class NGramsGenerator:
         """
         Returns commonly used punctuations
         """
-        str_punctuation = string.punctuation
-        special_punctuation = dict.fromkeys(i for i in range(sys.maxunicode) if unicodedata.category(chr(i)).startswith('P'))
-        del special_punctuation[46] # remove full stop from the dict
-        return str_punctuation, special_punctuation
+        return string.punctuation
+
+    def clean_extra_punctuations(self, text):
+        """
+        Clean the not so common extra punctuations
+        """
+        pattern = re.compile("[^a-zA-Z0-9_?.!'£$£€¥₹रु₣ ]")
+        return re.sub(pattern, "", text)
 
     def clean_sentence_level(
         self,
@@ -158,13 +161,12 @@ class NGramsGenerator:
         Cleans the texts based on input parameters at sentence level
         """
         entry = entry.strip()
+        entry = self.clean_extra_punctuations(entry)
         sent_tokens = sent_tokenize(entry, language=self.language_mapper.get(language, "english"))
         entry_tokens_lst = [word_tokenize(sent, language=self.language_mapper.get(language, "english")) for sent in sent_tokens]
 
         entry_tokens_lst = [self.handle_currency(entry_tokens) for entry_tokens in entry_tokens_lst]
-        str_punctuation, special_punctuation = self.get_punctuations()
-        entry_tokens_lst = [[w for w in entry_tokens if w not in str_punctuation] for entry_tokens in entry_tokens_lst] # Removes the punctuation from the sentence
-        entry_tokens_lst = [list(filter(None, [w.translate(special_punctuation) for w in entry_tokens])) for entry_tokens in entry_tokens_lst]
+        entry_tokens_lst = [[w for w in entry_tokens if w not in self.get_punctuations()] for entry_tokens in entry_tokens_lst] # Removes the punctuation from the sentence
 
         if self.enable_stopwords:
             entry_tokens_lst = [self.fn_stopwords(entry_tokens, language) for entry_tokens in entry_tokens_lst]
@@ -187,12 +189,11 @@ class NGramsGenerator:
         Cleans the texts based on input parameters
         """
         entry = entry.strip()
+        entry = self.clean_extra_punctuations(entry)
         entry_tokens = word_tokenize(entry, language=self.language_mapper.get(language, "english"))
         entry_tokens = self.handle_currency(entry_tokens)
-        str_punctuation, special_punctuation = self.get_punctuations()
-        entry_tokens = [w for w in entry_tokens if w not in str_punctuation] # Removes the punctuation from the sentence
+        entry_tokens = [w for w in entry_tokens if w not in self.get_punctuations()] # Removes the punctuation from the sentence
 
-        entry_tokens = list(filter(None, [w.translate(special_punctuation) for w in entry_tokens]))
         if self.enable_stopwords:
             entry_tokens = self.fn_stopwords(entry_tokens, language)
         if self.enable_stemming:
